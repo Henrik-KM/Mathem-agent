@@ -1,0 +1,24 @@
+# Local secrets / sessions
+.env
+cookie.txt
+*.cookies.txt
+
+# Generated plans and cart runs
+plan*.json
+cart*.json
+runs/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+dist/
+build/
+*.egg-info/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
