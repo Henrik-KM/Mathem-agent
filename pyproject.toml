@@ -1,0 +1,37 @@
+[project]
+name = "mathem-agent"
+version = "0.1.0"
+description = "Personal Mathem meal-planning and basket-building prototype."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27.0",
+    "typer>=0.12.0",
+    "python-dotenv>=1.0.0",
+    "rich>=13.7.0",
+    "fastmcp>=2.0.0",
+]
+
+[project.optional-dependencies]
+app = [
+    "streamlit>=1.36.0",
+]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.5.0",
+]
+
+[project.scripts]
+mathem-agent = "mathem_agent.cli:main"
+mathem-mcp = "mathem_agent.mcp_server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
