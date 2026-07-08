@@ -124,7 +124,7 @@ def plan(
     people: Annotated[int, typer.Option("--people", "-p")] = 2,
     meals: Annotated[int, typer.Option("--meals", "-m")] = 4,
     max_budget: Annotated[float | None, typer.Option("--max-budget", "-b")] = None,
-    preferences: Annotated[str, typer.Option("--preferences", "-pref")] = "snabbt, billigt, vardag",
+    preferences: Annotated[str, typer.Option("--preferences", "--pref")] = "snabbt, billigt, vardag",
     avoid: Annotated[list[str], typer.Option("--avoid", "-a")] = [],
     save: Annotated[Path | None, typer.Option("--save", "-s")] = None,
     seed: Annotated[int, typer.Option("--seed")] = 7,
