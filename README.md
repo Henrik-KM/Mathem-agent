@@ -1,19 +1,20 @@
 # Mathem Agent
 
-Personlig prototyp för att bygga en billigare och mer flexibel matkasse ovanpå Mathem.
+Personlig prototyp för en automatisk, värdeoptimerad matkasse ovanpå Mathem.
 
-Den gör följande:
+Målflödet är:
 
-1. skapar eller återansluter en lokal Mathem-session utan manuell cookie-kopiering,
-2. hämtar produkt-, pris-, kampanj- och prismatchdata från Mathem,
-3. väljer råvaror utifrån pris, jämförpris, prismatch och dina preferenser,
-4. konstruerar en veckomeny med konkreta Mathem-produkter,
-5. fyller din Mathem-varukorg efter explicit bekräftelse,
-6. öppnar samma inloggade webbläsarprofil för leveransval och checkout.
+1. logga in eller skapa Mathem-kontot en gång,
+2. spara den lokala sessionen,
+3. kör varje vecka utan synlig webbläsare,
+4. hämta aktuella Mathem-priser, kampanjer och prismatchprodukter,
+5. konstruera veckans meny utifrån dina preferenser,
+6. lägga alla valda produkter automatiskt i Mathem-varukorgen,
+7. låta dig öppna Mathem-appen eller din vanliga webbläsare när du vill granska och beställa.
 
-Den sista orderbekräftelsen och betalningen görs av dig direkt hos Mathem. Kontot, personuppgifterna, villkorsgodkännandet och betalningssteget hör till dig och passerar inte genom Mathem Agent.
+Veckojobbet skickar inte den bindande ordern och genomför inte betalningen. Det fyller den serverbaserade Mathem-varukorgen automatiskt.
 
-## Snabbstart från noll
+## Installation från noll
 
 ```bash
 git clone https://github.com/Henrik-KM/Mathem-agent.git
@@ -22,9 +23,103 @@ uv sync --extra app
 uv run mathem-agent setup
 ```
 
-`setup` installerar Chromium via Playwright, öppnar Mathems registreringssida och skapar en separat lokal webbläsarprofil. Fyll i de uppgifter Mathem begär direkt på deras webbplats, godkänn deras villkor och lägg in din leveransadress. När du är inloggad går du tillbaka till terminalen och trycker Enter.
+`setup` gör två saker:
 
-Mathem Agent sparar därefter sessionen lokalt under:
+- öppnar Mathem en enda gång för kontoregistrering eller inloggning,
+- installerar därefter ett lokalt bakgrundsjobb som sköter framtida veckor headless.
+
+Fyll i de uppgifter Mathem begär direkt på deras webbplats, godkänn villkoren och lägg in leveransadressen. När du är inloggad går du tillbaka till terminalen och trycker Enter.
+
+Den synliga Playwright-webbläsaren behövs alltså vid första registreringen. Den öppnas inte under normala veckokörningar.
+
+Standardinställningen är:
+
+- måndag klockan 09:00,
+- tidszon `Europe/Stockholm`,
+- två personer,
+- fyra middagar,
+- maxbudget 850 kr,
+- automatisk cart-add aktiverad.
+
+Kontrollera allt med:
+
+```bash
+uv run mathem-agent weekly status
+```
+
+## Hur schemat fungerar
+
+Operativsystemet gör en liten kontroll dagligen vid den konfigurerade tiden. Själva matkassen skapas bara en gång per veckoperiod.
+
+Det dagliga kontrolljobbet används för att datorn ska kunna komma ikapp om den var avstängd eller sov vid den exakta veckotiden. Jobbet är idempotent:
+
+- samma veckoplan återanvänds vid en omkörning,
+- redan tillagda varurader läggs inte till igen,
+- en delvis misslyckad körning fortsätter med kvarvarande varor,
+- ett osäkert API-resultat återförs inte automatiskt, eftersom det skulle kunna dubblera en vara.
+
+Alla planer och körstatusar sparas lokalt under:
+
+```text
+~/.mathem-agent/weekly-runs/
+```
+
+Loggen ligger i:
+
+```text
+~/.mathem-agent/weekly.log
+```
+
+## Anpassa den automatiska matkassen
+
+Exempel: söndag klockan 18:00, två personer och fem middagar:
+
+```bash
+uv run mathem-agent weekly configure \
+  --day SUN \
+  --time 18:00 \
+  --people 2 \
+  --meals 5 \
+  --max-budget 1000 \
+  --preferences "snabbt, mycket protein, varierat, inte för starkt" \
+  --avoid "svamp"
+```
+
+Kommandot sparar konfigurationen och uppdaterar Windows Task Scheduler eller användarens `crontab`, beroende på operativsystem.
+
+Installera om schemat från sparad konfiguration:
+
+```bash
+uv run mathem-agent weekly install
+```
+
+Ta bort endast bakgrundsschemat:
+
+```bash
+uv run mathem-agent weekly uninstall
+```
+
+Kontodata, sessioner och tidigare planer raderas inte av `uninstall`.
+
+## Testa veckoflödet direkt
+
+Skapa veckans plan utan att ändra varukorgen:
+
+```bash
+uv run mathem-agent weekly run --dry-run
+```
+
+Kör den riktiga veckoloopen direkt:
+
+```bash
+uv run mathem-agent weekly run
+```
+
+En andra körning under samma period ska rapportera `skipped` och inte lägga till produkterna igen.
+
+## Konto och session
+
+Sessionen sparas lokalt under:
 
 ```text
 ~/.mathem-agent/
@@ -32,35 +127,41 @@ Mathem Agent sparar därefter sessionen lokalt under:
 
 Du behöver inte öppna Developer Tools, kopiera cookies eller lägga lösenord i `.env`.
 
-Kontrollera status:
+Kontrollera kontosessionen:
 
 ```bash
 uv run mathem-agent auth status
 ```
 
-Om du redan har skapat ett konto:
+Om du redan har ett Mathem-konto:
 
 ```bash
 uv run mathem-agent setup --existing-account
 ```
 
-Om sessionen senare blir gammal:
+Den automatiska körningen försöker uppdatera sessionen headless. Om Mathem kräver en helt ny interaktiv inloggning markeras körningen som `needs_attention`; ingen webbläsare öppnas automatiskt. Då räcker det att köra:
 
 ```bash
-uv run mathem-agent auth refresh --visible
+uv run mathem-agent setup --existing-account
 ```
 
-## Sök och kontrollera Mathem-data
+## Öppna varukorgen
+
+Produkterna ligger i ditt Mathem-konto och kan därför granskas i Mathem-appen eller i din vanliga webbläsare. Repo:t behöver inte öppna den separata setup-profilen varje vecka.
 
 ```bash
-uv run mathem-agent search "kyckling"
-uv run mathem-agent prismatch --limit 20
-uv run mathem-agent prismatch-recipes --limit 20
+uv run mathem-agent checkout
 ```
 
-När en lokal session finns skickas den även vid produktsökningar, så Mathem kan använda ditt inloggade område och din leveranskontext.
+Detta öppnar Mathem i din vanliga standardwebbläsare. Den sparade Playwright-profilen används endast om du uttryckligen begär det:
 
-## Bygg en meny
+```bash
+uv run mathem-agent checkout --managed-profile
+```
+
+## Manuell planering och cart-add
+
+Du kan fortfarande arbeta manuellt:
 
 ```bash
 uv run mathem-agent plan \
@@ -72,28 +173,16 @@ uv run mathem-agent plan \
   --save plan.json
 ```
 
-Kör först en torrkörning av varukorgen:
+Torrkörning:
 
 ```bash
 uv run mathem-agent cart add plan.json
 ```
 
-Lägg sedan varorna i Mathem-varukorgen:
+Lägg till:
 
 ```bash
 uv run mathem-agent cart add plan.json --confirm
-```
-
-Öppna den inloggade Mathem-varukorgen och slutför leveransval och betalning:
-
-```bash
-uv run mathem-agent checkout
-```
-
-Samma kommando finns även som:
-
-```bash
-uv run mathem-agent cart open
 ```
 
 ## Lokal app
@@ -102,7 +191,7 @@ uv run mathem-agent cart open
 uv run streamlit run app.py
 ```
 
-Appen låter dig ange antal personer, antal middagar, budget, preferenser och bortval. Den visar meny, total kostnad och aggregerad varukorg. Kör `uv run mathem-agent setup` en gång innan du använder appens cart-funktion.
+Appen visar meny, estimerad kostnad och aggregerad varukorg. Det automatiska veckoschemat körs separat av operativsystemet.
 
 ## MCP-server
 
@@ -122,16 +211,16 @@ Exponerade MCP-tools:
 
 Den lokala Playwright-profilen och exporterade sessionscookies ligger utanför repo:t i `~/.mathem-agent/`. Mathem Agent lagrar inte ditt Mathem-lösenord eller dina betalningsuppgifter. Dela inte katalogen eller dess filer.
 
-Du kan välja en annan lokal katalog med:
+En annan lokal katalog kan anges med:
 
 ```bash
 export MATHEM_AGENT_HOME="/valfri/privat/katalog"
 ```
 
-Manuell `MATHEM_COOKIE` i `.env` stöds fortfarande som reservlösning, men behövs normalt inte.
+Manuell `MATHEM_COOKIE` i `.env` stöds fortfarande som reservlösning.
 
 ## Begränsningar
 
 Det här är en personlig prototyp. Mathems sidstruktur, sessionshantering och interna cart-endpoint kan ändras. Om det sker kan connectorn behöva uppdateras.
 
-Produktmatchningen är heuristisk. Kontrollera därför meny, antal och produkter innan `cart add --confirm`, och kontrollera alltid Mathems slutliga varukorg, leveransavgift, ersättningsvaror och totalsumma innan du skickar beställningen.
+Produktmatchningen är heuristisk. Kontrollera därför Mathems slutliga varukorg, antal, substitutionsvaror, leveransavgift och totalsumma innan du skickar en bindande beställning.
