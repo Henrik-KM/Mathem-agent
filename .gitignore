@@ -2,6 +2,10 @@
 .env
 cookie.txt
 *.cookies.txt
+.mathem-agent/
+browser-profile/
+storage-state.json
+session-metadata.json
 
 # Generated plans and cart runs
 plan*.json
