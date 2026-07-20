@@ -1,6 +1,6 @@
 [project]
 name = "mathem-agent"
-version = "0.1.0"
+version = "0.2.0"
 description = "Personal Mathem meal-planning and basket-building prototype."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -10,6 +10,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "rich>=13.7.0",
     "fastmcp>=2.0.0",
+    "playwright>=1.47.0",
 ]
 
 [project.optional-dependencies]
