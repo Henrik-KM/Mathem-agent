@@ -1,40 +1,66 @@
 # Mathem Agent
 
-Personlig prototyp för att bygga en billigare, mer flexibel matkasse ovanpå Mathem.
+Personlig prototyp för att bygga en billigare och mer flexibel matkasse ovanpå Mathem.
 
-Den första versionen gör fyra saker:
+Den gör följande:
 
-1. hämtar produkt- och prismatchdata från Mathem,
-2. väljer bra råvaror utifrån pris, jämförpris, prismatch, kampanj och preferenser,
-3. konstruerar en veckomeny med konkreta Mathem-produkter,
-4. fyller din Mathem-varukorg med valda produkter efter explicit bekräftelse.
+1. skapar eller återansluter en lokal Mathem-session utan manuell cookie-kopiering,
+2. hämtar produkt-, pris-, kampanj- och prismatchdata från Mathem,
+3. väljer råvaror utifrån pris, jämförpris, prismatch och dina preferenser,
+4. konstruerar en veckomeny med konkreta Mathem-produkter,
+5. fyller din Mathem-varukorg efter explicit bekräftelse,
+6. öppnar samma inloggade webbläsarprofil för leveransval och checkout.
 
-Den gör inte kortbetalning eller sista orderbekräftelsen. Den praktiska prototypen är: planera automatiskt, lägg i varukorg automatiskt, slutför själv i Mathems checkout.
+Den sista orderbekräftelsen och betalningen görs av dig direkt hos Mathem. Kontot, personuppgifterna, villkorsgodkännandet och betalningssteget hör till dig och passerar inte genom Mathem Agent.
 
-## Snabbstart
+## Snabbstart från noll
 
 ```bash
 git clone https://github.com/Henrik-KM/Mathem-agent.git
 cd Mathem-agent
 uv sync --extra app
-cp .env.example .env
+uv run mathem-agent setup
 ```
 
-Logga in på Mathem i webbläsaren och kopiera `Cookie`-headern från en request till `mathem.se` in i `.env` som `MATHEM_COOKIE`, eller lägg den i en lokal `cookie.txt`. Filerna är git-ignorerade.
+`setup` installerar Chromium via Playwright, öppnar Mathems registreringssida och skapar en separat lokal webbläsarprofil. Fyll i de uppgifter Mathem begär direkt på deras webbplats, godkänn deras villkor och lägg in din leveransadress. När du är inloggad går du tillbaka till terminalen och trycker Enter.
 
-Testa produktsökning:
+Mathem Agent sparar därefter sessionen lokalt under:
+
+```text
+~/.mathem-agent/
+```
+
+Du behöver inte öppna Developer Tools, kopiera cookies eller lägga lösenord i `.env`.
+
+Kontrollera status:
+
+```bash
+uv run mathem-agent auth status
+```
+
+Om du redan har skapat ett konto:
+
+```bash
+uv run mathem-agent setup --existing-account
+```
+
+Om sessionen senare blir gammal:
+
+```bash
+uv run mathem-agent auth refresh --visible
+```
+
+## Sök och kontrollera Mathem-data
 
 ```bash
 uv run mathem-agent search "kyckling"
-```
-
-Lista prismatchade varor:
-
-```bash
 uv run mathem-agent prismatch --limit 20
+uv run mathem-agent prismatch-recipes --limit 20
 ```
 
-Bygg en meny och spara som JSON:
+När en lokal session finns skickas den även vid produktsökningar, så Mathem kan använda ditt inloggade område och din leveranskontext.
+
+## Bygg en meny
 
 ```bash
 uv run mathem-agent plan \
@@ -46,13 +72,25 @@ uv run mathem-agent plan \
   --save plan.json
 ```
 
-Lägg planens produkter i Mathem-varukorgen:
+Kör först en torrkörning av varukorgen:
+
+```bash
+uv run mathem-agent cart add plan.json
+```
+
+Lägg sedan varorna i Mathem-varukorgen:
 
 ```bash
 uv run mathem-agent cart add plan.json --confirm
 ```
 
-Öppna sedan Mathem och slutför beställningen själv:
+Öppna den inloggade Mathem-varukorgen och slutför leveransval och betalning:
+
+```bash
+uv run mathem-agent checkout
+```
+
+Samma kommando finns även som:
 
 ```bash
 uv run mathem-agent cart open
@@ -64,7 +102,7 @@ uv run mathem-agent cart open
 uv run streamlit run app.py
 ```
 
-Appen låter dig ange antal personer, antal middagar, budget, preferenser och bortval. Den visar meny, total kostnad, varukorg och har en separat bekräftelseknapp för att lägga varorna i Mathem-varukorgen.
+Appen låter dig ange antal personer, antal middagar, budget, preferenser och bortval. Den visar meny, total kostnad och aggregerad varukorg. Kör `uv run mathem-agent setup` en gång innan du använder appens cart-funktion.
 
 ## MCP-server
 
@@ -77,15 +115,23 @@ Exponerade MCP-tools:
 - `search_products`
 - `list_prismatch_products`
 - `list_prismatch_recipes`
-- `generate_meal_plan`
+- `generate_meal_plan_tool`
 - `add_plan_to_cart`
 
-## Viktiga begränsningar
+## Sessionssäkerhet
 
-Det här är en personlig prototyp. Mathems sidstruktur och interna cart-endpoint kan ändras. Om Mathem ändrar sin Next.js-data, cart-API eller sessionshantering kan connectorn behöva uppdateras.
+Den lokala Playwright-profilen och exporterade sessionscookies ligger utanför repo:t i `~/.mathem-agent/`. Mathem Agent lagrar inte ditt Mathem-lösenord eller dina betalningsuppgifter. Dela inte katalogen eller dess filer.
 
-Använd bara ditt eget konto. Lagra inte lösenord i repo:t. Låt `.env` eller `cookie.txt` ligga lokalt.
+Du kan välja en annan lokal katalog med:
 
-## Rekommenderat flöde
+```bash
+export MATHEM_AGENT_HOME="/valfri/privat/katalog"
+```
 
-Kör först `plan`, kontrollera rätter och produkter, byt bort uppenbart dåliga matchningar, kör sedan `cart add`. Eftersom produktmatchning är heuristisk ska den ses som en snabb personlig assistent, inte som ett färdigt konsumentflöde.
+Manuell `MATHEM_COOKIE` i `.env` stöds fortfarande som reservlösning, men behövs normalt inte.
+
+## Begränsningar
+
+Det här är en personlig prototyp. Mathems sidstruktur, sessionshantering och interna cart-endpoint kan ändras. Om det sker kan connectorn behöva uppdateras.
+
+Produktmatchningen är heuristisk. Kontrollera därför meny, antal och produkter innan `cart add --confirm`, och kontrollera alltid Mathems slutliga varukorg, leveransavgift, ersättningsvaror och totalsumma innan du skickar beställningen.
