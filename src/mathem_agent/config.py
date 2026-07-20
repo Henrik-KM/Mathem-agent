@@ -20,14 +20,16 @@ def load_env() -> None:
 @dataclass(frozen=True, slots=True)
 class Settings:
     cookie: str = ""
-    user_agent: str = "mathem-agent-bot/0.1 personal-prototype contact:local"
+    user_agent: str = "mathem-agent-bot/0.2 personal-prototype contact:local"
     default_people: int = 2
     default_meals: int = 4
     default_budget_sek: float = 900.0
 
 
 def _read_cookie_file() -> str:
-    for path in (Path("cookie.txt"), Path.home() / ".mathem-agent" / "cookie.txt"):
+    configured_home = os.getenv("MATHEM_AGENT_HOME", "").strip()
+    agent_home = Path(configured_home).expanduser() if configured_home else Path.home() / ".mathem-agent"
+    for path in (Path("cookie.txt"), agent_home / "cookie.txt"):
         if path.exists():
             value = path.read_text(encoding="utf-8").strip()
             if value:
@@ -42,7 +44,7 @@ def get_settings() -> Settings:
         cookie=cookie,
         user_agent=os.getenv(
             "MATHEM_USER_AGENT",
-            "mathem-agent-bot/0.1 personal-prototype contact:local",
+            "mathem-agent-bot/0.2 personal-prototype contact:local",
         ).strip(),
         default_people=int(os.getenv("MATHEM_DEFAULT_PEOPLE", "2")),
         default_meals=int(os.getenv("MATHEM_DEFAULT_MEALS", "4")),
