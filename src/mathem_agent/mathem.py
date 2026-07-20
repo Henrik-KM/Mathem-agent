@@ -97,7 +97,13 @@ def iter_product_items(obj: Any) -> Iterable[dict[str, Any]]:
             if current.get("type") == "product" and isinstance(attrs, dict):
                 yield current
                 continue
-            if any(key in current for key in ("grossPrice", "grossUnitPrice", "brand", "nameExtra")) and current.get("id"):
+            if (
+                any(
+                    key in current
+                    for key in ("grossPrice", "grossUnitPrice", "brand", "nameExtra")
+                )
+                and current.get("id")
+            ):
                 yield {"type": "product", "attributes": current}
                 continue
             stack.extend(current.values())
@@ -138,7 +144,9 @@ def product_from_item(item: dict[str, Any]) -> MathemProduct | None:
             promotions.append(promotion)
 
     raw_text = " ".join(_string_values(attrs))[:5000]
-    url_value = str(_coalesce(attrs.get("url"), attrs.get("path"), attrs.get("href"), default=""))
+    url_value = str(
+        _coalesce(attrs.get("url"), attrs.get("path"), attrs.get("href"), default="")
+    )
     product_url = urljoin(BASE_URL, url_value) if url_value else ""
 
     return MathemProduct(
@@ -223,7 +231,12 @@ def recipes_from_html(html_text: str, limit: int = 100) -> list[dict[str, str]]:
 
 
 class MathemClient:
-    def __init__(self, cookie: str | None = None, user_agent: str | None = None, timeout: float = 30.0):
+    def __init__(
+        self,
+        cookie: str | None = None,
+        user_agent: str | None = None,
+        timeout: float = 30.0,
+    ):
         settings = get_settings()
         self.cookie = cookie if cookie is not None else settings.cookie
         self.user_agent = user_agent or settings.user_agent
@@ -271,7 +284,12 @@ class MathemClient:
         raise MathemError(f"Mathem request failed: {last_exc}")
 
     def get_html(self, path_or_url: str, params: dict[str, Any] | None = None) -> str:
-        response = self._request("GET", path_or_url, params=params, headers=self._headers())
+        response = self._request(
+            "GET",
+            path_or_url,
+            params=params,
+            headers=self._headers(include_cookie=bool(self.cookie)),
+        )
         return response.text
 
     def search_products(self, query: str, limit: int = 20) -> list[MathemProduct]:
@@ -280,7 +298,9 @@ class MathemClient:
         query_terms = [term for term in re.split(r"\W+", query.lower()) if len(term) >= 3]
         if query_terms:
             products.sort(
-                key=lambda product: sum(term in product.display_name.lower() for term in query_terms),
+                key=lambda product: sum(
+                    term in product.display_name.lower() for term in query_terms
+                ),
                 reverse=True,
             )
         return products[:limit]
@@ -303,7 +323,16 @@ class MathemClient:
             if 5 <= len(value) <= 90 and not value.startswith("http"):
                 title = value.strip()
                 lowered = title.lower()
-                recipe_terms = ["med", "pasta", "gryta", "kyckling", "torsk", "lax", "biff", "stroganoff"]
+                recipe_terms = [
+                    "med",
+                    "pasta",
+                    "gryta",
+                    "kyckling",
+                    "torsk",
+                    "lax",
+                    "biff",
+                    "stroganoff",
+                ]
                 if any(term in lowered for term in recipe_terms) and title not in seen:
                     seen.add(title)
                     out.append({"title": title, "url": ""})
@@ -314,7 +343,7 @@ class MathemClient:
     def add_to_cart(self, product_id: int | str, quantity: int = 1) -> dict[str, Any]:
         if not self.cookie:
             raise MathemAuthError(
-                "Missing Mathem session cookie. Set MATHEM_COOKIE in .env or create cookie.txt."
+                "Mathem-session saknas. Kör 'uv run mathem-agent setup' först."
             )
         payload = {"items": [{"product_id": int(product_id), "quantity": int(quantity)}]}
         headers = self._headers(include_cookie=True)
@@ -338,7 +367,10 @@ class MathemClient:
             "response": body,
         }
 
-    def add_many_to_cart(self, items: Iterable[tuple[int | str, int]]) -> list[dict[str, Any]]:
+    def add_many_to_cart(
+        self,
+        items: Iterable[tuple[int | str, int]],
+    ) -> list[dict[str, Any]]:
         results = []
         for product_id, quantity in items:
             results.append(self.add_to_cart(product_id, quantity))
