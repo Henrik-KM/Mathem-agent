@@ -5,6 +5,7 @@ from pathlib import Path
 
 import streamlit as st
 
+from mathem_agent.browser_auth import get_auth_status
 from mathem_agent.mathem import MathemAuthError, MathemClient
 from mathem_agent.planner import generate_meal_plan, save_plan
 
@@ -12,6 +13,18 @@ st.set_page_config(page_title="Mathem Agent", page_icon="🛒", layout="wide")
 
 st.title("Mathem Agent")
 st.caption("Personlig prototyp: Mathem-priser → meny → varukorg.")
+
+auth_status = get_auth_status()
+if auth_status.configured:
+    st.success(
+        f"Lokal Mathem-session är konfigurerad ({auth_status.cookie_count} cookies)."
+    )
+else:
+    st.warning(
+        "Mathem-konto/session är inte konfigurerad. Kör följande kommando i terminalen "
+        "innan du lägger varor i korgen:"
+    )
+    st.code("uv run mathem-agent setup", language="bash")
 
 with st.sidebar:
     st.header("Plan")
@@ -56,7 +69,11 @@ if plan.warnings:
 
 st.subheader("Meny")
 for i, meal in enumerate(plan.meals, start=1):
-    with st.expander(f"{i}. {meal.title} — {meal.estimated_minutes} min — ca {meal.estimated_cost:.0f} kr", expanded=True):
+    label = (
+        f"{i}. {meal.title} — {meal.estimated_minutes} min — "
+        f"ca {meal.estimated_cost:.0f} kr"
+    )
+    with st.expander(label, expanded=True):
         st.write("Ingredienser")
         for ingredient in meal.ingredients:
             product = ingredient.product
@@ -103,19 +120,24 @@ with left:
         save_plan(plan, Path("plan.json"))
         st.success("Sparade plan.json")
 with right:
-    st.link_button("Öppna Mathem-varukorg", "https://www.mathem.se/se/cart/")
+    st.link_button("Öppna Mathem i vanlig webbläsare", "https://www.mathem.se/se/cart/")
 
 st.divider()
 st.subheader("Lägg i Mathem-varukorg")
-st.write("Detta använder din lokala Mathem-cookie från `.env` eller `cookie.txt`.")
+st.write("Detta använder sessionen som skapades av `uv run mathem-agent setup`.")
 confirm_text = st.text_input("Skriv ADD för att bekräfta", value="")
-if st.button("Lägg alla produkter i varukorgen", disabled=confirm_text != "ADD"):
+add_disabled = confirm_text != "ADD" or not auth_status.configured
+if st.button("Lägg alla produkter i varukorgen", disabled=add_disabled):
     client = MathemClient()
     try:
         with st.spinner("Lägger produkter i Mathem-varukorgen..."):
-            results = client.add_many_to_cart((line.product.id, line.quantity) for line in plan.cart_lines)
+            results = client.add_many_to_cart(
+                (line.product.id, line.quantity) for line in plan.cart_lines
+            )
         st.success("Klart. Kontrollera Mathem-varukorgen innan checkout.")
         st.code(json.dumps(results, ensure_ascii=False, indent=2), language="json")
+        st.write("Öppna samma inloggade profil för checkout med:")
+        st.code("uv run mathem-agent checkout", language="bash")
     except MathemAuthError as exc:
         st.error(str(exc))
     except Exception as exc:
