@@ -1,6 +1,6 @@
 [project]
 name = "mathem-agent"
-version = "0.2.0"
+version = "0.3.0"
 description = "Personal Mathem meal-planning and basket-building prototype."
 readme = "README.md"
 requires-python = ">=3.11"
