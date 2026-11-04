@@ -2,6 +2,36 @@
 
 Personlig prototyp för en automatisk, värdeoptimerad matkasse ovanpå Mathem.
 
+## Project overview and offline review
+
+Mathem Agent is a personal Python prototype for planning a household's weekly
+meals, comparing grocery products and preparing a Mathem shopping basket. It
+provides a Typer CLI, an optional Streamlit interface and FastMCP tools. HTTPX
+and Playwright support the retailer connector; pytest covers parsing, product
+scoring, local session helpers and weekly-run recovery.
+
+Meal selection uses recipe templates, heuristic product scoring and seeded
+selection. The proposed development work is documented in [ROADMAP.md](ROADMAP.md).
+
+### Review without a live account
+
+Use Python 3.11 or newer. From a checkout of this repository:
+
+```bash
+uv sync --extra dev --extra app
+uv run mathem-agent demo --save plan-demo.json
+uv run pytest -q
+```
+
+The demo uses the built-in sample catalog, and the tests use temporary files and
+mock clients. These commands do not sign in to Mathem, install a weekly job or
+modify a live basket. Real account setup and scheduled basket updates are
+separate, optional flows described below.
+
+Session cookies and browser profiles are stored outside the repository by
+default under `~/.mathem-agent/`. Keep local account state, addresses and
+shopping records private; use fictional fixtures for development and review.
+
 Målflödet är:
 
 1. logga in eller skapa Mathem-kontot en gång,
@@ -224,3 +254,12 @@ Manuell `MATHEM_COOKIE` i `.env` stöds fortfarande som reservlösning.
 Det här är en personlig prototyp. Mathems sidstruktur, sessionshantering och interna cart-endpoint kan ändras. Om det sker kan connectorn behöva uppdateras.
 
 Produktmatchningen är heuristisk. Kontrollera därför Mathems slutliga varukorg, antal, substitutionsvaror, leveransavgift och totalsumma innan du skickar en bindande beställning.
+
+## License
+
+The original source code and accompanying documentation are licensed under the
+[MIT License](LICENSE), copyright (c) 2026 Henrik Klein Moberg.
+
+Dependencies retain their respective licenses. This software license does not
+grant rights to retailer branding, externally sourced product content, account
+credentials or personal shopping records.

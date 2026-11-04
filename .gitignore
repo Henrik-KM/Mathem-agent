@@ -1,5 +1,7 @@
 # Local secrets / sessions
 .env
+.env.*
+!.env.example
 cookie.txt
 *.cookies.txt
 .mathem-agent/
